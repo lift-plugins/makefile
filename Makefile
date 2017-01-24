@@ -1,16 +1,21 @@
 BRANCH		:= $(shell git rev-parse --abbrev-ref HEAD)
 LDFLAGS 	:= -ldflags "-X main.Version=$(VERSION) -X main.Name=$(NAME)"
 
-test:
+name := $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
+
+help: ## Shows this help text
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(name) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+test: ## Runs go test recursively
 	go test ./...
 
-dev:
+dev: ## Builds a dev binary for local testing
 	go build -tags dev -o $(NAME) $(LDFLAGS) cmd/$(NAME)/$(NAME).go
 
-install:
+install: ## Installs binary in $GOPATH/bin
 	go install $(LDFLAGS) cmd/$(NAME).go
 
-build:
+build: ## Builds production binaries for darwin, freebsd, windows and solaris
 	@rm -rf build/
 	@gox $(LDFLAGS) \
 	-osarch="darwin/amd64 darwin/386" \
@@ -21,7 +26,7 @@ build:
 	-output "build/$(NAME)_$(VERSION)_{{.OS}}_{{.Arch}}/$(NAME)" \
 	./...
 
-dist: build
+dist: build ## Generates distributable artifacts
 	$(eval FILES := $(shell ls build))
 	@rm -rf dist && mkdir dist
 	@for f in $(FILES); do \
@@ -30,7 +35,7 @@ dist: build
 		echo $$f; \
 	done
 
-release: dist
+release: dist ## Generates a release in GitHub and uploads artifacts
 	@latest_tag=$$(git describe --tags `git rev-list --tags --max-count=1`); \
 	comparison="$$latest_tag..HEAD"; \
 	if [ -z "$$latest_tag" ]; then comparison=""; fi; \
@@ -39,3 +44,5 @@ release: dist
 	git pull
 
 .PHONY: test build install compile dist release
+
+.DEFAULT_GOAL := help
